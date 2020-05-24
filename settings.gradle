@@ -1,0 +1,3 @@
+rootProject.name='Android-Audio-Video'
+include ':base-library'
+include ':day01-camera-preview'
