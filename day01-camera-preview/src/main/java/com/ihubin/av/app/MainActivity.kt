@@ -1,15 +1,19 @@
 package com.ihubin.av.app
 
+import android.Manifest
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 
 class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), 0X01)
     }
 
     fun cameraSurfaceView(view: View) {
@@ -25,7 +29,7 @@ class MainActivity : AppCompatActivity() {
         cameraPreview(3)
     }
 
-    fun cameraPreview(which: Int) {
+    private fun cameraPreview(which: Int) {
         val previewType: Int = when (which) {
             0 -> {
                 CameraPreviewActivity.TYPE_CAMERA_SURFACE_VIEW

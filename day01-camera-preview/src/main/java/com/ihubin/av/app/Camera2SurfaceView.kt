@@ -1,6 +1,7 @@
 package com.ihubin.av.app
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.ImageFormat
@@ -27,6 +28,12 @@ class Camera2SurfaceView(context: Context?, attrs: AttributeSet?, defStyleAttr: 
 
     constructor(context: Context?) : this(context, null) {}
     constructor(context: Context?, attrs: AttributeSet?) : this(context, attrs, 0) {}
+
+    init {
+        mContext = context
+        mSurfaceHolder = holder
+        mSurfaceHolder?.addCallback(this)
+    }
 
     override fun surfaceCreated(holder: SurfaceHolder) {
         val handlerThread = HandlerThread("camera2")
@@ -71,6 +78,7 @@ class Camera2SurfaceView(context: Context?, attrs: AttributeSet?, defStyleAttr: 
                 Manifest.permission.CAMERA
             ) != PackageManager.PERMISSION_GRANTED
         ) {
+            ActivityCompat.requestPermissions(mContext as Activity, arrayOf(Manifest.permission.CAMERA), 0X01)
             return
         }
         if (mCameraId == null) {
@@ -155,30 +163,19 @@ class Camera2SurfaceView(context: Context?, attrs: AttributeSet?, defStyleAttr: 
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
         closeCameraPreview()
-        if (mCameraDevice != null) {
-            mCameraDevice!!.close()
-        }
-        if (mImageReader != null) {
-            mImageReader!!.close()
-        }
-        mWorkHandler!!.looper.quitSafely()
+        mCameraDevice?.close()
+        mImageReader?.close()
+        mWorkHandler?.looper?.quitSafely()
     }
 
     private fun closeCameraPreview() {
-        if (mCameraCaptureSession != null) {
-            try {
-                mCameraCaptureSession!!.stopRepeating()
-                mCameraCaptureSession!!.abortCaptures()
-                mCameraCaptureSession!!.close()
-            } catch (e: Exception) {
-            }
-            mCameraCaptureSession = null
+        try {
+            mCameraCaptureSession?.stopRepeating()
+            mCameraCaptureSession?.abortCaptures()
+            mCameraCaptureSession?.close()
+        } catch (e: Exception) {
         }
+        mCameraCaptureSession = null
     }
 
-    init {
-        mContext = context
-        mSurfaceHolder = holder
-        mSurfaceHolder!!.addCallback(this)
-    }
 }

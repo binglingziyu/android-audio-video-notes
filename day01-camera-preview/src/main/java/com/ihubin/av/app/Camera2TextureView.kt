@@ -1,6 +1,7 @@
 package com.ihubin.av.app
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.ImageFormat
@@ -27,6 +28,11 @@ class Camera2TextureView(context: Context?, attrs: AttributeSet?, defStyleAttr: 
 
     constructor(context: Context?) : this(context, null) {}
     constructor(context: Context?, attrs: AttributeSet?) : this(context, attrs, 0) {}
+
+    init {
+        mContext = context
+        surfaceTextureListener = this
+    }
 
     override fun onSurfaceTextureAvailable(
         surface: SurfaceTexture,
@@ -92,6 +98,7 @@ class Camera2TextureView(context: Context?, attrs: AttributeSet?, defStyleAttr: 
                 Manifest.permission.CAMERA
             ) != PackageManager.PERMISSION_GRANTED
         ) {
+            ActivityCompat.requestPermissions(mContext as Activity, arrayOf(Manifest.permission.CAMERA), 0X01)
             return
         }
         if (mCameraId == null) {
@@ -167,19 +174,13 @@ class Camera2TextureView(context: Context?, attrs: AttributeSet?, defStyleAttr: 
     }
 
     private fun closeCameraPreview() {
-        if (mCameraCaptureSession != null) {
-            try {
-                mCameraCaptureSession!!.stopRepeating()
-                mCameraCaptureSession!!.abortCaptures()
-                mCameraCaptureSession!!.close()
-            } catch (e: Exception) {
-            }
-            mCameraCaptureSession = null
+        try {
+            mCameraCaptureSession?.stopRepeating()
+            mCameraCaptureSession?.abortCaptures()
+            mCameraCaptureSession?.close()
+        } catch (e: Exception) {
         }
+        mCameraCaptureSession = null
     }
 
-    init {
-        mContext = context
-        surfaceTextureListener = this
-    }
 }

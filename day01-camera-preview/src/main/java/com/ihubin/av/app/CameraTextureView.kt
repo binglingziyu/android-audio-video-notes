@@ -1,21 +1,29 @@
 package com.ihubin.av.app
 
+import android.Manifest
 import android.app.Activity
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.SurfaceTexture
 import android.hardware.Camera
 import android.util.AttributeSet
 import android.view.TextureView
 import android.view.TextureView.SurfaceTextureListener
+import androidx.core.app.ActivityCompat
 import java.io.IOException
 
 class CameraTextureView(context: Context?, attrs: AttributeSet?, defStyleAttr: Int) :
     TextureView(context, attrs, defStyleAttr), SurfaceTextureListener {
     private var mCamera: Camera? = null
-    private val mActivity: Activity?
+    private var mContext: Context? = null
 
-    constructor(context: Context?) : this(context, null) {}
-    constructor(context: Context?, attrs: AttributeSet?) : this(context, attrs, 0) {}
+    constructor(context: Context?) : this(context, null)
+    constructor(context: Context?, attrs: AttributeSet?) : this(context, attrs, 0)
+
+    init {
+        mContext = context
+        surfaceTextureListener = this
+    }
 
     override fun onSurfaceTextureAvailable(
         surface: SurfaceTexture,
@@ -44,6 +52,14 @@ class CameraTextureView(context: Context?, attrs: AttributeSet?, defStyleAttr: I
      * 打开相机
      */
     private fun openCamera() {
+        if (ActivityCompat.checkSelfPermission(
+                mContext!!,
+                Manifest.permission.CAMERA
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(mContext as Activity, arrayOf(Manifest.permission.CAMERA), 0X01)
+            return
+        }
         val number: Int = Camera.getNumberOfCameras()
         val cameraInfo = Camera.CameraInfo()
         for (i in 0 until number) {
@@ -51,7 +67,8 @@ class CameraTextureView(context: Context?, attrs: AttributeSet?, defStyleAttr: I
             if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK) {
                 // 打开后置摄像头
                 mCamera = Camera.open(i)
-                CameraUtil.setCameraDisplayOrientation(mActivity!!, i, mCamera!!)
+                // CameraUtil.setCameraDisplayOrientation(mActivity!!, i, mCamera!!)
+                mCamera?.setDisplayOrientation(cameraInfo.orientation)
             }
         }
     }
@@ -62,14 +79,12 @@ class CameraTextureView(context: Context?, attrs: AttributeSet?, defStyleAttr: I
      * @param texture
      */
     private fun startPreview(texture: SurfaceTexture) {
-        if (mCamera != null) {
-            mCamera!!.setPreviewCallback({ data, camera -> })
-            try {
-                mCamera!!.setPreviewTexture(texture)
-                mCamera!!.startPreview()
-            } catch (e: IOException) {
-                e.printStackTrace()
-            }
+        mCamera?.setPreviewCallback({ data, camera -> })
+        try {
+            mCamera?.setPreviewTexture(texture)
+            mCamera?.startPreview()
+        } catch (e: IOException) {
+            e.printStackTrace()
         }
     }
 
@@ -77,21 +92,14 @@ class CameraTextureView(context: Context?, attrs: AttributeSet?, defStyleAttr: I
      * 关闭相机
      */
     private fun releaseCamera() {
-        if (mCamera != null) {
-            try {
-                mCamera!!.stopPreview()
-                mCamera!!.setPreviewCallback(null)
-                mCamera!!.setPreviewDisplay(null)
-                mCamera!!.release()
-            } catch (e: IOException) {
-                e.printStackTrace()
-            }
-            mCamera = null
+        try {
+            mCamera?.stopPreview()
+            mCamera?.setPreviewCallback(null)
+            mCamera?.setPreviewDisplay(null)
+            mCamera?.release()
+        } catch (e:IOException) {
+            e.printStackTrace()
         }
-    }
-
-    init {
-        mActivity = context as Activity
-        surfaceTextureListener = this
+        mCamera = null
     }
 }
