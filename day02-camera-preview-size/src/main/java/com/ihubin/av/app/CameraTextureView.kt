@@ -7,13 +7,22 @@ import android.content.pm.PackageManager
 import android.graphics.SurfaceTexture
 import android.hardware.Camera
 import android.util.AttributeSet
+import android.util.Log
 import android.view.TextureView
 import android.view.TextureView.SurfaceTextureListener
 import androidx.core.app.ActivityCompat
+import com.ihubin.av.app.base.AspectRatio
+import com.ihubin.av.app.base.Size
+import com.ihubin.av.app.base.SizeMap
 import java.io.IOException
 
 class CameraTextureView(context: Context?, attrs: AttributeSet?, defStyleAttr: Int) :
     TextureView(context, attrs, defStyleAttr), SurfaceTextureListener {
+
+    companion object {
+        private const val TAG = "CameraTextureView"
+    }
+
     private var mCamera: Camera? = null
     private var mContext: Context? = null
 
@@ -67,8 +76,24 @@ class CameraTextureView(context: Context?, attrs: AttributeSet?, defStyleAttr: I
             if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK) {
                 // 打开后置摄像头
                 mCamera = Camera.open(i)
-                // CameraUtil.setCameraDisplayOrientation(mActivity!!, i, mCamera!!)
-                mCamera?.setDisplayOrientation(cameraInfo.orientation)
+                CameraUtil.setCameraDisplayOrientation(mContext as Activity, i, mCamera!!)
+//                mCamera?.setDisplayOrientation(cameraInfo.orientation)
+                val parameters = mCamera?.parameters;
+
+                val mPreviewSizes = SizeMap()
+                val supportedPreviewSizes = parameters!!.supportedPreviewSizes
+                mPreviewSizes.clear()
+                for(size in supportedPreviewSizes) {
+                    mPreviewSizes.add(Size(size.width, size.height))
+                }
+                val DEFAULT_ASPECT_RATIO = AspectRatio.of(4, 3)
+                val sizes = mPreviewSizes.sizes(DEFAULT_ASPECT_RATIO)
+                val lastSize = sizes?.last()
+                lastSize?.let {
+                    Log.i(TAG, "最终预览尺寸：${it.width}:${it.height}")
+                    parameters.setPreviewSize(it.width, it.height)
+                }
+                mCamera?.parameters = parameters
             }
         }
     }

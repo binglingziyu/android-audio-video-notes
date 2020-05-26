@@ -27,18 +27,19 @@ class CameraPreviewActivity : AppCompatActivity() {
 
     private fun previewCamera() {
         val root: ConstraintLayout = findViewById(R.id.cl_root)
+        val layoutParams = ConstraintLayout.LayoutParams(1080, 1440)
         if (mPreviewType == TYPE_CAMERA_SURFACE_VIEW) {
             val view = CameraSurfaceView(this)
-            root.addView(view)
+            root.addView(view, layoutParams)
         } else if (mPreviewType == TYPE_CAMERA_TEXTURE_VIEW) {
             val view = CameraTextureView(this)
-            root.addView(view)
+            root.addView(view, layoutParams)
         } else if (mPreviewType == TYPE_CAMERA2_SURFACE_VIEW) {
             val view = Camera2SurfaceView(this)
-            root.addView(view)
+            root.addView(view, layoutParams)
         } else {
             val view = Camera2TextureView(this)
-            root.addView(view)
+            root.addView(view, layoutParams)
         }
     }
 

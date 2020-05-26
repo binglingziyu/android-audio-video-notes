@@ -1,6 +1,12 @@
 
 
 
+
+
+https://juejin.im/post/5a33a5106fb9a04525782db5
+
+https://blog.csdn.net/jinzhuojun/article/details/44062175
+
 -----
 
 [Android Camera 模型及 API 接口演变](https://glumes.com/post/android/android-camrea-api-evolution/)
