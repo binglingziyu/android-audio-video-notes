@@ -27,7 +27,9 @@ class CameraPreviewActivity : AppCompatActivity() {
 
     private fun previewCamera() {
         val root: ConstraintLayout = findViewById(R.id.cl_root)
-        val layoutParams = ConstraintLayout.LayoutParams(1080, 1440)
+        val layoutParams = ConstraintLayout.LayoutParams(ConstraintLayout.LayoutParams.MATCH_PARENT, 0)
+        layoutParams.dimensionRatio = "h,9:16"
+//        layoutParams.dimensionRatio = "h,3:4"
         if (mPreviewType == TYPE_CAMERA_SURFACE_VIEW) {
             val view = CameraSurfaceView(this)
             root.addView(view, layoutParams)

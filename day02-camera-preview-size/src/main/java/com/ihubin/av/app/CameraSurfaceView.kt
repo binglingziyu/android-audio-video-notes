@@ -25,6 +25,8 @@ class CameraSurfaceView(context: Context?, attrs: AttributeSet?, defStyleAttr: I
 
     private var mCamera: Camera? = null
     private var mContext: Context? = null
+//    private val DEFAULT_ASPECT_RATIO = AspectRatio.of(4, 3)
+                private val DEFAULT_ASPECT_RATIO = AspectRatio.of(16, 9)
 
     constructor(context: Context?) : this(context, null) {}
     constructor(context: Context?, attrs: AttributeSet?) : this(context, attrs, 0) {}
@@ -84,7 +86,6 @@ class CameraSurfaceView(context: Context?, attrs: AttributeSet?, defStyleAttr: I
                 for(size in supportedPreviewSizes) {
                     mPreviewSizes.add(Size(size.width, size.height))
                 }
-                val DEFAULT_ASPECT_RATIO = AspectRatio.of(4, 3)
                 val sizes = mPreviewSizes.sizes(DEFAULT_ASPECT_RATIO)
                 val lastSize = sizes?.last()
                 lastSize?.let {

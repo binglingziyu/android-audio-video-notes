@@ -12,19 +12,32 @@ import android.media.ImageReader
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.AttributeSet
+import android.util.Log
 import android.view.Surface
+import android.view.SurfaceHolder
 import android.view.TextureView
 import android.view.TextureView.SurfaceTextureListener
 import androidx.core.app.ActivityCompat
+import com.ihubin.av.app.base.AspectRatio
+import com.ihubin.av.app.base.Size
+import com.ihubin.av.app.base.SizeMap
 
 class Camera2TextureView(context: Context?, attrs: AttributeSet?, defStyleAttr: Int) :
     TextureView(context, attrs, defStyleAttr), SurfaceTextureListener {
+
+    companion object {
+        private const val TAG = "Camera2TextureView"
+    }
+
     private var mContext: Context? = null
     private var mWorkHandler: Handler? = null
     private var mCameraId: String? = null
     private var mCameraDevice: CameraDevice? = null
     private var mImageReader: ImageReader? = null
     private var mCameraCaptureSession: CameraCaptureSession? = null
+    private val mPreviewSizes = SizeMap()
+//    private val DEFAULT_ASPECT_RATIO = AspectRatio.of(4, 3)
+                private val DEFAULT_ASPECT_RATIO = AspectRatio.of(16, 9)
 
     constructor(context: Context?) : this(context, null) {}
     constructor(context: Context?, attrs: AttributeSet?) : this(context, attrs, 0) {}
@@ -79,10 +92,22 @@ class Camera2TextureView(context: Context?, attrs: AttributeSet?, defStyleAttr: 
                     characteristics.get(CameraCharacteristics.SENSOR_ORIENTATION)
                 val supportedHardwareLevel =
                     characteristics.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)
-                if (lensFacing != null && lensFacing == CameraCharacteristics.LENS_FACING_BACK) {
-                    mCameraId = s
-                    break
+
+                if (lensFacing == null || lensFacing != CameraCharacteristics.LENS_FACING_BACK) {
+                    continue
                 }
+                mCameraId = s
+
+                //获取相机输出格式/尺寸参数
+                val configs = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                val outputSizeList = configs!!.getOutputSizes(SurfaceTexture::class.java)
+                for(size in outputSizeList) {
+                    mPreviewSizes.add(Size(size.width, size.height))
+                    Log.i(TAG, "支持的相机尺寸：width: ${size.width}, height: ${size.height}")
+                }
+
+                val sizes = mPreviewSizes.sizes(DEFAULT_ASPECT_RATIO)
+                val lastSize = sizes?.last()
             }
         } catch (e: CameraAccessException) {
             e.printStackTrace()
@@ -110,8 +135,10 @@ class Camera2TextureView(context: Context?, attrs: AttributeSet?, defStyleAttr: 
             cameraManager.openCamera(mCameraId!!, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
                     mCameraDevice = camera
+                    val sizes = mPreviewSizes.sizes(DEFAULT_ASPECT_RATIO)
+                    val lastSize = sizes?.last()
                     mImageReader =
-                        ImageReader.newInstance(width, height, ImageFormat.YUV_420_888, 8)
+                        ImageReader.newInstance(lastSize!!.width, lastSize.height, ImageFormat.YUV_420_888, 8)
                     mImageReader!!.setOnImageAvailableListener({ reader ->
                         val image: Image = reader.acquireLatestImage()
                         //我们可以将这帧数据转成字节数组，类似于Camera1的PreviewCallback回调的预览帧数据
@@ -145,6 +172,9 @@ class Camera2TextureView(context: Context?, attrs: AttributeSet?, defStyleAttr: 
         try {
             val captureRequestBuilder =
                 mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
+            val sizes = mPreviewSizes.sizes(DEFAULT_ASPECT_RATIO)
+            val lastSize = sizes?.last()
+            surfaceTexture.setDefaultBufferSize(lastSize!!.width, lastSize.height)
             val surface = Surface(surfaceTexture)
             captureRequestBuilder.addTarget(surface)
             val imageReaderSurface: Surface = mImageReader!!.surface
