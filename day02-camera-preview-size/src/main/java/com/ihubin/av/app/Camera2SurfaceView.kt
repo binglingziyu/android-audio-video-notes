@@ -108,15 +108,6 @@ class Camera2SurfaceView(context: Context?, attrs: AttributeSet?, defStyleAttr: 
         if (mCameraId == null) {
             return
         }
-        val sizes = mPreviewSizes.sizes(DEFAULT_ASPECT_RATIO)
-        val lastSize = sizes?.last()
-        lastSize?.let {
-            mSurfaceHolder?.setFixedSize(lastSize.width, lastSize.height)
-            Log.e(TAG, " mSurfaceHolder == null ? " + (mSurfaceHolder == null))
-            Log.e(TAG, " mSurfaceHolder.isCreating ? " + (mSurfaceHolder?.isCreating))
-        }
-
-        Log.i(TAG, "最终选择：${lastSize!!.width} / ${lastSize!!.height}")
 
         val cameraManager =
             mContext!!.getSystemService(Context.CAMERA_SERVICE) as CameraManager
@@ -161,6 +152,16 @@ class Camera2SurfaceView(context: Context?, attrs: AttributeSet?, defStyleAttr: 
      */
     private fun createCameraPreview() {
         try {
+            val sizes = mPreviewSizes.sizes(DEFAULT_ASPECT_RATIO)
+            val lastSize = sizes?.last()
+            lastSize?.let {
+                mSurfaceHolder?.setFixedSize(lastSize.width, lastSize.height)
+                Log.e(TAG, " mSurfaceHolder == null ? " + (mSurfaceHolder == null))
+                Log.e(TAG, " mSurfaceHolder.isCreating ? " + (mSurfaceHolder?.isCreating))
+            }
+
+            Log.i(TAG, "最终选择：${lastSize!!.width} / ${lastSize!!.height}")
+
             val captureRequestBuilder =
                 mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
 
@@ -214,8 +215,10 @@ class Camera2SurfaceView(context: Context?, attrs: AttributeSet?, defStyleAttr: 
             openCamera()
             firstInit = true
         } else {
-            checkCamera()
-            openCamera()
+//            checkCamera()
+//            openCamera()
+            closeCameraPreview()
+            createCameraPreview()
         }
     }
 

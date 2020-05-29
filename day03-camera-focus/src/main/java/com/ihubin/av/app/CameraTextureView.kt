@@ -4,58 +4,61 @@ import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.SurfaceTexture
 import android.hardware.Camera
 import android.util.AttributeSet
 import android.util.Log
-import android.view.SurfaceHolder
-import android.view.SurfaceView
+import android.view.TextureView
+import android.view.TextureView.SurfaceTextureListener
 import androidx.core.app.ActivityCompat
 import com.ihubin.av.app.base.AspectRatio
 import com.ihubin.av.app.base.Size
 import com.ihubin.av.app.base.SizeMap
 import java.io.IOException
 
-
-class CameraSurfaceView(context: Context?, attrs: AttributeSet?, defStyleAttr: Int) :
-    SurfaceView(context, attrs, defStyleAttr), SurfaceHolder.Callback {
+class CameraTextureView(context: Context?, attrs: AttributeSet?, defStyleAttr: Int) :
+    TextureView(context, attrs, defStyleAttr), SurfaceTextureListener {
 
     companion object {
-        private const val TAG = "CameraSurfaceView"
+        private const val TAG = "CameraTextureView"
     }
 
     private var mCamera: Camera? = null
+    private var mCameraParameters: Camera.Parameters? = null
     private var mContext: Context? = null
+    private val DEFAULT_ASPECT_RATIO = AspectRatio.of(16, 9)
 //    private val DEFAULT_ASPECT_RATIO = AspectRatio.of(4, 3)
-                private val DEFAULT_ASPECT_RATIO = AspectRatio.of(16, 9)
 
-    constructor(context: Context?) : this(context, null) {}
-    constructor(context: Context?, attrs: AttributeSet?) : this(context, attrs, 0) {}
+    constructor(context: Context?) : this(context, null)
+    constructor(context: Context?, attrs: AttributeSet?) : this(context, attrs, 0)
 
     init {
-        holder.addCallback(this)
         mContext = context
+        surfaceTextureListener = this
     }
 
-    override fun surfaceCreated(holder: SurfaceHolder) {
-        Log.e(TAG, "surfaceCreated: ")
-        // 异步预览
-        openCamera()
-        startPreview(holder)
-    }
-
-    override fun surfaceChanged(
-        holder: SurfaceHolder,
-        format: Int,
+    override fun onSurfaceTextureAvailable(
+        surface: SurfaceTexture,
         width: Int,
         height: Int
     ) {
-        Log.i(TAG, "surfaceChanged: width[$width], height[$height]")
+        openCamera()
+        startPreview(surface)
     }
 
-    override fun surfaceDestroyed(holder: SurfaceHolder) {
-        Log.e(TAG, "surfaceDestroyed: ")
-        releaseCamera()
+    override fun onSurfaceTextureSizeChanged(
+        surface: SurfaceTexture,
+        width: Int,
+        height: Int
+    ) {
     }
+
+    override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+        releaseCamera()
+        return true
+    }
+
+    override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
 
     /**
      * 打开相机
@@ -73,27 +76,28 @@ class CameraSurfaceView(context: Context?, attrs: AttributeSet?, defStyleAttr: I
         val cameraInfo = Camera.CameraInfo()
         for (i in 0 until number) {
             Camera.getCameraInfo(i, cameraInfo)
-            // 打开后置摄像头
             if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK) {
+                // 打开后置摄像头
                 mCamera = Camera.open(i)
                 CameraUtil.setCameraDisplayOrientation(mContext as Activity, i, mCamera!!)
-//                mCamera?.setDisplayOrientation(cameraInfo.orientation)
-                val parameters = mCamera?.parameters;
+                mCameraParameters = mCamera?.parameters;
 
                 val mPreviewSizes = SizeMap()
-                val supportedPreviewSizes = parameters!!.supportedPreviewSizes
+                val supportedPreviewSizes = mCameraParameters!!.supportedPreviewSizes
                 mPreviewSizes.clear()
                 for(size in supportedPreviewSizes) {
                     mPreviewSizes.add(Size(size.width, size.height))
+                    Log.i(TAG, "支持的相机尺寸：width: ${size.width}, height: ${size.height}")
                 }
+
                 val sizes = mPreviewSizes.sizes(DEFAULT_ASPECT_RATIO)
                 val lastSize = sizes?.last()
                 lastSize?.let {
                     Log.i(TAG, "最终预览尺寸：${it.width}:${it.height}")
-                    parameters.setPreviewSize(it.width, it.height)
+                    mCameraParameters?.setPreviewSize(it.width, it.height)
                 }
-                mCamera?.parameters = parameters
-                break
+                setAutoFocusInternal(true)
+                mCamera?.parameters = mCameraParameters
             }
         }
     }
@@ -101,12 +105,12 @@ class CameraSurfaceView(context: Context?, attrs: AttributeSet?, defStyleAttr: I
     /**
      * 开始预览
      *
-     * @param holder
+     * @param texture
      */
-    private fun startPreview(holder: SurfaceHolder) {
+    private fun startPreview(texture: SurfaceTexture) {
         mCamera?.setPreviewCallback({ data, camera -> })
         try {
-            mCamera?.setPreviewDisplay(holder)
+            mCamera?.setPreviewTexture(texture)
             mCamera?.startPreview()
         } catch (e: IOException) {
             e.printStackTrace()
@@ -117,16 +121,33 @@ class CameraSurfaceView(context: Context?, attrs: AttributeSet?, defStyleAttr: I
      * 关闭相机
      */
     private fun releaseCamera() {
-        Log.e(TAG, "releaseCamera: ")
         try {
             mCamera?.stopPreview()
             mCamera?.setPreviewCallback(null)
             mCamera?.setPreviewDisplay(null)
             mCamera?.release()
-        } catch (e: IOException) {
+        } catch (e:IOException) {
             e.printStackTrace()
         }
         mCamera = null
     }
 
+    private fun setAutoFocusInternal(autoFocus: Boolean): Boolean {
+        return if (mCamera != null) {
+            val modes: List<String> =
+                mCameraParameters!!.supportedFocusModes
+            if (autoFocus && modes.contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE)) {
+                mCameraParameters?.focusMode = Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE
+            } else if (modes.contains(Camera.Parameters.FOCUS_MODE_FIXED)) {
+                mCameraParameters?.focusMode = Camera.Parameters.FOCUS_MODE_FIXED
+            } else if (modes.contains(Camera.Parameters.FOCUS_MODE_INFINITY)) {
+                mCameraParameters?.focusMode = Camera.Parameters.FOCUS_MODE_INFINITY
+            } else {
+                mCameraParameters?.focusMode = modes[0]
+            }
+            true
+        } else {
+            false
+        }
+    }
 }
