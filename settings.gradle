@@ -3,3 +3,5 @@ include ':base-library'
 include ':day01-camera-preview'
 include ':day02-camera-preview-size'
 include ':day03-camera-focus'
+include ':day04-camera-open-flash'
+
