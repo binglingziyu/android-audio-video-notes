@@ -18,7 +18,7 @@ import android.view.TextureView.SurfaceTextureListener
 import androidx.core.app.ActivityCompat
 
 class Camera2TextureView(context: Context?, attrs: AttributeSet?, defStyleAttr: Int) :
-    TextureView(context, attrs, defStyleAttr), SurfaceTextureListener {
+    TextureView(context!!, attrs, defStyleAttr), SurfaceTextureListener {
     private var mContext: Context? = null
     private var mWorkHandler: Handler? = null
     private var mCameraId: String? = null

@@ -17,7 +17,7 @@ import com.ihubin.av.app.base.SizeMap
 import java.io.IOException
 
 class CameraTextureView(context: Context?, attrs: AttributeSet?, defStyleAttr: Int) :
-    TextureView(context, attrs, defStyleAttr), SurfaceTextureListener {
+    TextureView(context!!, attrs, defStyleAttr), SurfaceTextureListener {
 
     companion object {
         private const val TAG = "CameraTextureView"

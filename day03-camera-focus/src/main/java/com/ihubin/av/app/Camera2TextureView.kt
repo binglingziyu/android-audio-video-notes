@@ -23,7 +23,7 @@ import com.ihubin.av.app.base.Size
 import com.ihubin.av.app.base.SizeMap
 
 class Camera2TextureView(context: Context?, attrs: AttributeSet?, defStyleAttr: Int) :
-    TextureView(context, attrs, defStyleAttr), SurfaceTextureListener {
+    TextureView(context!!, attrs, defStyleAttr), SurfaceTextureListener {
 
     companion object {
         private const val TAG = "Camera2TextureView"
@@ -175,7 +175,7 @@ class Camera2TextureView(context: Context?, attrs: AttributeSet?, defStyleAttr: 
             val sizes = mPreviewSizes.sizes(DEFAULT_ASPECT_RATIO)
             val lastSize = sizes?.last()
             lastSize?.let {
-                surfaceTexture.setDefaultBufferSize(it.width, it.height)
+                surfaceTexture?.setDefaultBufferSize(it.width, it.height)
                 Log.i(TAG, "最终预览尺寸：${it.width}:${it.height}")
             }
             val surface = Surface(surfaceTexture)

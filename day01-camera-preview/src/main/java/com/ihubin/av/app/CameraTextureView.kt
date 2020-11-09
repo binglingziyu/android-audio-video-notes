@@ -13,7 +13,7 @@ import androidx.core.app.ActivityCompat
 import java.io.IOException
 
 class CameraTextureView(context: Context?, attrs: AttributeSet?, defStyleAttr: Int) :
-    TextureView(context, attrs, defStyleAttr), SurfaceTextureListener {
+    TextureView(context!!, attrs, defStyleAttr), SurfaceTextureListener {
     private var mCamera: Camera? = null
     private var mContext: Context? = null
 
