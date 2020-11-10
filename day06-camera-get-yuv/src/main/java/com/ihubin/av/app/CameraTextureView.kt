@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.ImageFormat
 import android.graphics.SurfaceTexture
 import android.hardware.Camera
 import android.util.AttributeSet
@@ -118,6 +119,20 @@ class CameraTextureView(context: Context, attrs: AttributeSet?, defStyleAttr: In
             Log.i(TAG, "最终预览尺寸：${it.width}:${it.height}")
             mCameraParameters?.setPreviewSize(it.width, it.height)
         }
+        val previewFpsRange =  mCameraParameters?.supportedPreviewFpsRange
+        if (previewFpsRange != null) {
+            for (i in previewFpsRange) {
+                Log.d(TAG, "支持的预览帧率：${i.size}:${i[0]}-${i[1]}")
+            }
+        }
+        Log.d(TAG, "默认预览帧率："+mCameraParameters?.previewFrameRate)
+
+
+        val previewFormats = mCameraParameters?.supportedPreviewFormats
+        Log.d(TAG, "支持的预览格式：" + previewFormats!!)
+        // 预览格式，默认 ImageFormat.NV21
+        mCameraParameters?.previewFormat = ImageFormat.NV21
+
         setAutoFocusInternal(true)
         try {
             mCamera?.parameters = mCameraParameters

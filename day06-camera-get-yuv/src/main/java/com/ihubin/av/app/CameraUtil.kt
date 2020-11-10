@@ -73,6 +73,7 @@ object CameraUtil {
         }
     }
 
+    // https://github.com/githubhaohao/OpenGLCamera2  CameraUtil
     fun toYUV420Data(image: Image): ByteArray? {
         val imageWidth: Int = image.width
         val imageHeight: Int = image.height
