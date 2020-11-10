@@ -5,4 +5,5 @@ include ':day02-camera-preview-size'
 include ':day03-camera-focus'
 include ':day04-camera-open-flash'
 include ':day05-camera-switch'
+include ':day06-camera-get-yuv'
 
