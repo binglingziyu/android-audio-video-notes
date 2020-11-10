@@ -16,6 +16,7 @@ import com.ihubin.av.app.base.AspectRatio
 import com.ihubin.av.app.base.Size
 import com.ihubin.av.app.base.SizeMap
 import java.io.IOException
+import java.lang.Exception
 
 class CameraSurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: Int) :
     SurfaceView(context, attrs, defStyleAttr), SurfaceHolder.Callback, ICamera {
@@ -23,6 +24,10 @@ class CameraSurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: In
     companion object {
         private const val TAG = "CameraSurfaceView"
     }
+
+    private var frontCamera: Int? = null
+    private var backCamera: Int? = null
+    private var currentCamera: Int? = null
 
     @Suppress("DEPRECATION")
     private var mCamera: Camera? = null
@@ -35,6 +40,8 @@ class CameraSurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: In
 
     init {
         holder.addCallback(this)
+
+        checkCamera()
     }
 
     constructor(context: Context) : this(context, null, 0) {}
@@ -61,6 +68,24 @@ class CameraSurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: In
     }
 
     /**
+     * 检测相机
+     */
+    private fun checkCamera() {
+        val number: Int = Camera.getNumberOfCameras()
+        val cameraInfo = Camera.CameraInfo()
+        for (i in 0 until number) {
+            Camera.getCameraInfo(i, cameraInfo)
+            if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK) {
+                backCamera = i;
+            } else if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+                frontCamera = i;
+            }
+        }
+        // 默认使用后置摄像头
+        currentCamera = backCamera
+    }
+
+    /**
      * 打开相机
      */
     @Suppress("DEPRECATION")
@@ -72,34 +97,30 @@ class CameraSurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: In
             ActivityCompat.requestPermissions(context as Activity, arrayOf(Manifest.permission.CAMERA), 0X01)
             return
         }
-        val number: Int = Camera.getNumberOfCameras()
-        val cameraInfo = Camera.CameraInfo()
-        for (i in 0 until number) {
-            Camera.getCameraInfo(i, cameraInfo)
-            // 打开后置摄像头
-            if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK) {
-                mCamera = Camera.open(i)
-                CameraUtil.setCameraDisplayOrientation(context as Activity, i, mCamera!!)
-                mCameraParameters = mCamera?.parameters
 
-                val mPreviewSizes = SizeMap()
-                val supportedPreviewSizes = mCameraParameters!!.supportedPreviewSizes
-                mPreviewSizes.clear()
-                for(size in supportedPreviewSizes) {
-                    mPreviewSizes.add(Size(size.width, size.height))
-                    Log.i(TAG, "支持的相机尺寸：width: ${size.width}, height: ${size.height}")
-                }
-                val sizes = mPreviewSizes.sizes(mDefaultAspectRatio)
-                val lastSize = sizes?.last()
-                lastSize?.let {
-                    Log.i(TAG, "最终预览尺寸：${it.width}:${it.height}")
-                    mCameraParameters?.setPreviewSize(it.width, it.height)
-                }
+        mCamera = Camera.open(currentCamera!!)
+        CameraUtil.setCameraDisplayOrientation(context as Activity, currentCamera!!, mCamera!!)
+        mCameraParameters = mCamera?.parameters
 
-                setAutoFocusInternal(true)
-                mCamera?.parameters = mCameraParameters
-                break
-            }
+        val mPreviewSizes = SizeMap()
+        val supportedPreviewSizes = mCameraParameters!!.supportedPreviewSizes
+        mPreviewSizes.clear()
+        for(size in supportedPreviewSizes) {
+            mPreviewSizes.add(Size(size.width, size.height))
+            Log.i(TAG, "支持的相机尺寸：width: ${size.width}, height: ${size.height}")
+        }
+        val sizes = mPreviewSizes.sizes(mDefaultAspectRatio)
+        val lastSize = sizes?.last()
+        lastSize?.let {
+            Log.i(TAG, "最终预览尺寸：${it.width}:${it.height}")
+            mCameraParameters?.setPreviewSize(it.width, it.height)
+        }
+
+        setAutoFocusInternal(true)
+        try {
+            mCamera?.parameters = mCameraParameters
+        } catch (e: Exception) {
+            e.message?.let { Log.e("openCamera setParameter", it) }
         }
     }
 
@@ -120,15 +141,29 @@ class CameraSurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: In
     }
 
     /**
-     * 关闭相机
+     * 停止预览
+     *
+     * @param holder
      */
-    @Suppress("DEPRECATION")
-    private fun releaseCamera() {
-        Log.e(TAG, "releaseCamera: ")
+    @Suppress("DEPRECATION", "SameParameterValue")
+    private fun stopPreview() {
         try {
             mCamera?.stopPreview()
             mCamera?.setPreviewCallback(null)
             mCamera?.setPreviewDisplay(null)
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * 关闭相机
+     */
+    @Suppress("DEPRECATION")
+    private fun releaseCamera() {
+        Log.d(TAG, "releaseCamera")
+        stopPreview()
+        try {
             mCamera?.release()
         } catch (e: IOException) {
             e.printStackTrace()
@@ -158,21 +193,35 @@ class CameraSurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: In
     override fun openFlash() {
         //打开闪光灯
         mCameraParameters?.flashMode = Camera.Parameters.FLASH_MODE_TORCH
-        mCamera?.parameters = mCameraParameters
+        try {
+            mCamera?.parameters = mCameraParameters
+        } catch (e: Exception) {
+            e.message?.let { Log.e("openFlash Faild", it) }
+        }
     }
 
     override fun closeFlash() {
         //关闭闪光灯
         mCameraParameters?.flashMode = Camera.Parameters.FLASH_MODE_OFF
-        mCamera?.parameters = mCameraParameters
+        try {
+            mCamera?.parameters = mCameraParameters
+        } catch (e: Exception) {
+            e.message?.let { Log.e("closeFlash Faild", it) }
+        }
     }
 
     override fun switchToFront() {
-        TODO("Not yet implemented")
+        releaseCamera()
+        currentCamera = frontCamera
+        openCamera()
+        startPreview(holder)
     }
 
     override fun switchToBack() {
-        TODO("Not yet implemented")
+        releaseCamera()
+        currentCamera = backCamera
+        openCamera()
+        startPreview(holder)
     }
 
 }

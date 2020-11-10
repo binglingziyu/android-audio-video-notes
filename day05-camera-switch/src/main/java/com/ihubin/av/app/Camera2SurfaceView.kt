@@ -30,9 +30,11 @@ class Camera2SurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: I
         private const val TAG = "Camera2SurfaceView"
     }
 
-    private var mSurfaceHolder: SurfaceHolder? = null
+    private var frontCameraId: String? = null
+    private var backCameraId: String? = null
+    private var currentCameraId: String? = null
+
     private var mWorkHandler: Handler? = null
-    private var mCameraId: String? = null
     private var mCameraDevice: CameraDevice? = null
     private var mImageReader: ImageReader? = null
     private var mCaptureRequestBuilder: CaptureRequest.Builder? = null
@@ -42,8 +44,9 @@ class Camera2SurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: I
     //    private val mDefaultAspectRatio = AspectRatio.of(4, 3)
 
     init {
-        mSurfaceHolder = holder
-        mSurfaceHolder?.addCallback(this)
+        holder.addCallback(this)
+
+        checkCamera()
     }
 
     constructor(context: Context) : this(context, null, 0) {}
@@ -52,6 +55,31 @@ class Camera2SurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: I
         val handlerThread = HandlerThread("camera2")
         handlerThread.start()
         mWorkHandler = Handler(handlerThread.looper)
+    }
+
+    private var firstInit = false
+
+    override fun surfaceChanged(
+        holder: SurfaceHolder,
+        format: Int,
+        width: Int,
+        height: Int
+    ) {
+        Log.e(TAG, "surfaceChanged: $width / $height")
+        if(!firstInit) {
+            openCamera()
+            firstInit = true
+        } else {
+            stopPreview()
+            startPreview()
+        }
+    }
+
+    override fun surfaceDestroyed(holder: SurfaceHolder) {
+        Log.d(TAG, "surfaceDestroyed")
+        firstInit = false
+        releaseCamera()
+        mWorkHandler?.looper?.quitSafely()
     }
 
     /**
@@ -70,19 +98,33 @@ class Camera2SurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: I
 //                val supportedHardwareLevel =
 //                    characteristics.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)
 
-                if (lensFacing == null || lensFacing != CameraCharacteristics.LENS_FACING_BACK) {
+                if (lensFacing == null) {
                     continue
-                }
-                mCameraId = s
+                } else if(lensFacing == CameraCharacteristics.LENS_FACING_BACK) {
+                    backCameraId = s
 
-                mPreviewSizes.clear()
-                //获取相机输出格式/尺寸参数
-                val configs = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-                val outputSizeList = configs!!.getOutputSizes(SurfaceHolder::class.java)
-                for(size in outputSizeList) {
-                    mPreviewSizes.add(Size(size.width, size.height))
-                    Log.i(TAG, "支持的相机尺寸：width: ${size.width}, height: ${size.height}")
+                    mPreviewSizes.clear()
+                    //获取相机输出格式/尺寸参数
+                    val configs = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                    val outputSizeList = configs!!.getOutputSizes(SurfaceHolder::class.java)
+                    for(size in outputSizeList) {
+                        mPreviewSizes.add(Size(size.width, size.height))
+                        Log.i(TAG, "后置支持的相机尺寸：width: ${size.width}, height: ${size.height}")
+                    }
+                } else if(lensFacing == CameraCharacteristics.LENS_FACING_FRONT) {
+                    frontCameraId = s
+
+                    mPreviewSizes.clear()
+                    //获取相机输出格式/尺寸参数
+                    val configs = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                    val outputSizeList = configs!!.getOutputSizes(SurfaceHolder::class.java)
+                    for(size in outputSizeList) {
+                        mPreviewSizes.add(Size(size.width, size.height))
+                        Log.i(TAG, "前置支持的相机尺寸：width: ${size.width}, height: ${size.height}")
+                    }
                 }
+                // 默认使用后置摄像头
+                currentCameraId = backCameraId
             }
         } catch (e: CameraAccessException) {
             e.printStackTrace()
@@ -101,13 +143,13 @@ class Camera2SurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: I
             )
             return
         }
-        if (mCameraId == null) {
+        if (currentCameraId == null) {
             return
         }
 
         val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         try {
-            cameraManager.openCamera(mCameraId!!, object : CameraDevice.StateCallback() {
+            cameraManager.openCamera(currentCameraId!!, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
                     mCameraDevice = camera
                     val sizes = mPreviewSizes.sizes(mDefaultAspectRatio)
@@ -127,7 +169,8 @@ class Camera2SurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: I
                         //buffer.get(data);
                         image.close()
                     }, mWorkHandler)
-                    createCameraPreview()
+                    // 开始预览
+                    startPreview()
                 }
 
                 override fun onDisconnected(camera: CameraDevice) {
@@ -148,15 +191,14 @@ class Camera2SurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: I
     /**
      * 相机预览
      */
-    @Suppress("DEPRECATION")
-    private fun createCameraPreview() {
+    private fun startPreview() {
         try {
             val sizes = mPreviewSizes.sizes(mDefaultAspectRatio)
             val lastSize = sizes?.last()
             lastSize?.let {
-                mSurfaceHolder?.setFixedSize(lastSize.width, lastSize.height)
-                Log.e(TAG, " mSurfaceHolder == null ? " + (mSurfaceHolder == null))
-                Log.e(TAG, " mSurfaceHolder.isCreating ? " + (mSurfaceHolder?.isCreating))
+                holder?.setFixedSize(lastSize.width, lastSize.height)
+                Log.e(TAG, " mSurfaceHolder == null ? " + (holder == null))
+                Log.e(TAG, " mSurfaceHolder.isCreating ? " + (holder?.isCreating))
             }
 
             Log.i(TAG, "最终选择：${lastSize!!.width} / ${lastSize.height}")
@@ -164,24 +206,24 @@ class Camera2SurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: I
             mCaptureRequestBuilder =
                 mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
 
-            Log.e(TAG, " mSurfaceHolder == null ? " + (mSurfaceHolder == null))
-            Log.e(TAG, " mSurfaceHolder.isCreating ? " + (mSurfaceHolder?.isCreating))
+            Log.e(TAG, " mSurfaceHolder == null ? " + (holder == null))
+            Log.e(TAG, " mSurfaceHolder.isCreating ? " + (holder?.isCreating))
 
 //            //根据TextureView 和 选定的 previewSize 创建用于显示预览数据的Surface
 //            SurfaceTexture surfaceTexture = previewView.getSurfaceTexture();
 //            surfaceTexture.setDefaultBufferSize(previewSize.getWidth(), previewSize.getHeight());//设置SurfaceTexture缓冲区大小
 //            final Surface previewSurface = new Surface(surfaceTexture);
-            val surface: Surface = mSurfaceHolder!!.surface
+            val surface: Surface = holder!!.surface
             mCaptureRequestBuilder!!.addTarget(surface)
 
-//            val imageReaderSurface: Surface = mImageReader!!.surface
-//            captureRequestBuilder.addTarget(imageReaderSurface)
+            val imageReaderSurface: Surface = mImageReader!!.surface
+            mCaptureRequestBuilder!!.addTarget(imageReaderSurface)
             mCaptureRequestBuilder!!.set(
                 CaptureRequest.CONTROL_MODE,
                 CaptureRequest.CONTROL_MODE_AUTO
             )
             mCameraDevice!!.createCaptureSession(
-                listOf(surface),
+                listOf(surface, imageReaderSurface),
                 object : CameraCaptureSession.StateCallback() {
                     override fun onConfigured(session: CameraCaptureSession) {
                         mCameraCaptureSession = session
@@ -200,36 +242,7 @@ class Camera2SurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: I
         }
     }
 
-    private var firstInit = false
-
-    override fun surfaceChanged(
-        holder: SurfaceHolder,
-        format: Int,
-        width: Int,
-        height: Int
-    ) {
-        Log.e(TAG, "surfaceChanged: $width / $height")
-        if(!firstInit) {
-            checkCamera()
-            openCamera()
-            firstInit = true
-        } else {
-//            checkCamera()
-//            openCamera()
-            closeCameraPreview()
-            createCameraPreview()
-        }
-    }
-
-    override fun surfaceDestroyed(holder: SurfaceHolder) {
-        firstInit = false
-        closeCameraPreview()
-        mCameraDevice?.close()
-        mImageReader?.close()
-        mWorkHandler?.looper?.quitSafely()
-    }
-
-    private fun closeCameraPreview() {
+    private fun stopPreview() {
         try {
             mCameraCaptureSession?.stopRepeating()
             mCameraCaptureSession?.abortCaptures()
@@ -237,6 +250,16 @@ class Camera2SurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: I
         } catch (e: Exception) {
         }
         mCameraCaptureSession = null
+    }
+
+    private fun releaseCamera() {
+        stopPreview()
+        try {
+            mCameraDevice?.close()
+            mImageReader?.close()
+        } catch (e: Exception) {
+
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.M)
@@ -260,11 +283,15 @@ class Camera2SurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: I
     }
 
     override fun switchToFront() {
-        TODO("Not yet implemented")
+        releaseCamera()
+        currentCameraId = frontCameraId
+        openCamera()
     }
 
     override fun switchToBack() {
-        TODO("Not yet implemented")
+        releaseCamera()
+        currentCameraId = backCameraId
+        openCamera()
     }
 
 }

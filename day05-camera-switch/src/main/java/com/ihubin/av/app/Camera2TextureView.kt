@@ -15,6 +15,7 @@ import android.os.HandlerThread
 import android.util.AttributeSet
 import android.util.Log
 import android.view.Surface
+import android.view.SurfaceHolder
 import android.view.TextureView
 import android.view.TextureView.SurfaceTextureListener
 import androidx.annotation.RequiresApi
@@ -30,8 +31,11 @@ class Camera2TextureView(context: Context, attrs: AttributeSet?, defStyleAttr: I
         private const val TAG = "Camera2TextureView"
     }
 
+    private var frontCameraId: String? = null
+    private var backCameraId: String? = null
+    private var currentCameraId: String? = null
+
     private var mWorkHandler: Handler? = null
-    private var mCameraId: String? = null
     private var mCameraDevice: CameraDevice? = null
     private var mImageReader: ImageReader? = null
     private var mCaptureRequestBuilder: CaptureRequest.Builder? = null
@@ -42,6 +46,8 @@ class Camera2TextureView(context: Context, attrs: AttributeSet?, defStyleAttr: I
 
     init {
         surfaceTextureListener = this
+
+        checkCamera()
     }
 
     constructor(context: Context) : this(context, null, 0) {}
@@ -54,7 +60,6 @@ class Camera2TextureView(context: Context, attrs: AttributeSet?, defStyleAttr: I
         val handlerThread = HandlerThread("camera2")
         handlerThread.start()
         mWorkHandler = Handler(handlerThread.looper)
-        checkCamera()
         openCamera()
     }
 
@@ -62,13 +67,10 @@ class Camera2TextureView(context: Context, attrs: AttributeSet?, defStyleAttr: I
         surface: SurfaceTexture,
         width: Int,
         height: Int
-    ) {
-    }
+    ) {}
 
     override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
-        closeCameraPreview()
-        mCameraDevice?.close()
-        mImageReader?.close()
+        releaseCamera()
         mWorkHandler?.looper?.quitSafely()
         return true
     }
@@ -91,18 +93,33 @@ class Camera2TextureView(context: Context, attrs: AttributeSet?, defStyleAttr: I
 //                val supportedHardwareLevel =
 //                    characteristics.get(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL)
 
-                if (lensFacing == null || lensFacing != CameraCharacteristics.LENS_FACING_BACK) {
+                if (lensFacing == null) {
                     continue
-                }
-                mCameraId = s
+                } else if(lensFacing == CameraCharacteristics.LENS_FACING_BACK) {
+                    backCameraId = s
 
-                //获取相机输出格式/尺寸参数
-                val configs = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
-                val outputSizeList = configs!!.getOutputSizes(SurfaceTexture::class.java)
-                for(size in outputSizeList) {
-                    mPreviewSizes.add(Size(size.width, size.height))
-                    Log.i(TAG, "支持的相机尺寸：width: ${size.width}, height: ${size.height}")
+                    mPreviewSizes.clear()
+                    //获取相机输出格式/尺寸参数
+                    val configs = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                    val outputSizeList = configs!!.getOutputSizes(SurfaceHolder::class.java)
+                    for(size in outputSizeList) {
+                        mPreviewSizes.add(Size(size.width, size.height))
+                        Log.i(TAG, "后置支持的相机尺寸：width: ${size.width}, height: ${size.height}")
+                    }
+                } else if(lensFacing == CameraCharacteristics.LENS_FACING_FRONT) {
+                    frontCameraId = s
+
+                    mPreviewSizes.clear()
+                    //获取相机输出格式/尺寸参数
+                    val configs = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP)
+                    val outputSizeList = configs!!.getOutputSizes(SurfaceHolder::class.java)
+                    for(size in outputSizeList) {
+                        mPreviewSizes.add(Size(size.width, size.height))
+                        Log.i(TAG, "前置支持的相机尺寸：width: ${size.width}, height: ${size.height}")
+                    }
                 }
+                // 默认使用后置摄像头
+                currentCameraId = backCameraId
             }
         } catch (e: CameraAccessException) {
             e.printStackTrace()
@@ -121,19 +138,24 @@ class Camera2TextureView(context: Context, attrs: AttributeSet?, defStyleAttr: I
             ActivityCompat.requestPermissions(context as Activity, arrayOf(Manifest.permission.CAMERA), 0X01)
             return
         }
-        if (mCameraId == null) {
+        if (currentCameraId == null) {
             return
         }
         val cameraManager =
             context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         try {
-            cameraManager.openCamera(mCameraId!!, object : CameraDevice.StateCallback() {
+            cameraManager.openCamera(currentCameraId!!, object : CameraDevice.StateCallback() {
                 override fun onOpened(camera: CameraDevice) {
                     mCameraDevice = camera
                     val sizes = mPreviewSizes.sizes(mDefaultAspectRatio)
                     val lastSize = sizes?.last()
                     mImageReader =
-                        ImageReader.newInstance(lastSize!!.width, lastSize.height, ImageFormat.YUV_420_888, 2)
+                        ImageReader.newInstance(
+                            lastSize!!.width,
+                            lastSize.height,
+                            ImageFormat.YUV_420_888,
+                            2
+                        )
                     mImageReader!!.setOnImageAvailableListener({ reader ->
                         val image: Image = reader.acquireLatestImage()
                         //我们可以将这帧数据转成字节数组，类似于Camera1的PreviewCallback回调的预览帧数据
@@ -142,7 +164,8 @@ class Camera2TextureView(context: Context, attrs: AttributeSet?, defStyleAttr: I
                         //buffer.get(data);
                         image.close()
                     }, mWorkHandler)
-                    createCameraPreview()
+                    // 开始预览
+                    startPreview()
                 }
 
                 override fun onDisconnected(camera: CameraDevice) {
@@ -163,8 +186,9 @@ class Camera2TextureView(context: Context, attrs: AttributeSet?, defStyleAttr: I
     /**
      * 相机预览
      */
-    private fun createCameraPreview() {
+    private fun startPreview() {
         try {
+
             mCaptureRequestBuilder =
                 mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
             val sizes = mPreviewSizes.sizes(mDefaultAspectRatio)
@@ -201,7 +225,7 @@ class Camera2TextureView(context: Context, attrs: AttributeSet?, defStyleAttr: I
         }
     }
 
-    private fun closeCameraPreview() {
+    private fun stopPreview() {
         try {
             mCameraCaptureSession?.stopRepeating()
             mCameraCaptureSession?.abortCaptures()
@@ -211,6 +235,15 @@ class Camera2TextureView(context: Context, attrs: AttributeSet?, defStyleAttr: I
         mCameraCaptureSession = null
     }
 
+    private fun releaseCamera() {
+        stopPreview()
+        try {
+            mCameraDevice?.close()
+            mImageReader?.close()
+        } catch (e: Exception) {
+
+        }
+    }
 
     @RequiresApi(Build.VERSION_CODES.M)
     override fun openFlash() {
@@ -233,11 +266,15 @@ class Camera2TextureView(context: Context, attrs: AttributeSet?, defStyleAttr: I
     }
 
     override fun switchToFront() {
-        TODO("Not yet implemented")
+        releaseCamera()
+        currentCameraId = frontCameraId
+        openCamera()
     }
 
     override fun switchToBack() {
-        TODO("Not yet implemented")
+        releaseCamera()
+        currentCameraId = backCameraId
+        openCamera()
     }
 
 }
