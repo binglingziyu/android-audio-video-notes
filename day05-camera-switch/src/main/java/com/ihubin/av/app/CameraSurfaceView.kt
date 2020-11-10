@@ -5,8 +5,6 @@ import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
 import android.hardware.Camera
-import android.hardware.camera2.CameraMetadata
-import android.hardware.camera2.CaptureRequest
 import android.util.AttributeSet
 import android.util.Log
 import android.view.SurfaceHolder
@@ -44,13 +42,13 @@ class CameraSurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: In
         checkCamera()
     }
 
-    constructor(context: Context) : this(context, null, 0) {}
+    constructor(context: Context) : this(context, null, 0)
 
     override fun surfaceCreated(holder: SurfaceHolder) {
         Log.e(TAG, "surfaceCreated: ")
         // 预览
         openCamera()
-        startPreview(holder)
+        startPreview()
     }
 
     override fun surfaceChanged(
@@ -70,15 +68,16 @@ class CameraSurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: In
     /**
      * 检测相机
      */
-    private fun checkCamera() {
+    @Suppress("DEPRECATION")
+    override fun checkCamera() {
         val number: Int = Camera.getNumberOfCameras()
         val cameraInfo = Camera.CameraInfo()
         for (i in 0 until number) {
             Camera.getCameraInfo(i, cameraInfo)
             if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK) {
-                backCamera = i;
+                backCamera = i
             } else if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
-                frontCamera = i;
+                frontCamera = i
             }
         }
         // 默认使用后置摄像头
@@ -89,7 +88,7 @@ class CameraSurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: In
      * 打开相机
      */
     @Suppress("DEPRECATION")
-    private fun openCamera() {
+    override fun openCamera() {
         if (ActivityCompat.checkSelfPermission(context,
                 Manifest.permission.CAMERA
             ) != PackageManager.PERMISSION_GRANTED
@@ -126,11 +125,9 @@ class CameraSurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: In
 
     /**
      * 开始预览
-     *
-     * @param holder
      */
     @Suppress("DEPRECATION", "SameParameterValue")
-    private fun startPreview(holder: SurfaceHolder) {
+    override fun startPreview() {
         mCamera?.setPreviewCallback { _, _ -> }
         try {
             mCamera?.setPreviewDisplay(holder)
@@ -142,11 +139,9 @@ class CameraSurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: In
 
     /**
      * 停止预览
-     *
-     * @param holder
      */
     @Suppress("DEPRECATION", "SameParameterValue")
-    private fun stopPreview() {
+    override fun stopPreview() {
         try {
             mCamera?.stopPreview()
             mCamera?.setPreviewCallback(null)
@@ -160,7 +155,7 @@ class CameraSurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: In
      * 关闭相机
      */
     @Suppress("DEPRECATION")
-    private fun releaseCamera() {
+    override fun releaseCamera() {
         Log.d(TAG, "releaseCamera")
         stopPreview()
         try {
@@ -190,6 +185,7 @@ class CameraSurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: In
         }
     }
 
+    @Suppress("DEPRECATION")
     override fun openFlash() {
         //打开闪光灯
         mCameraParameters?.flashMode = Camera.Parameters.FLASH_MODE_TORCH
@@ -200,6 +196,7 @@ class CameraSurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: In
         }
     }
 
+    @Suppress("DEPRECATION")
     override fun closeFlash() {
         //关闭闪光灯
         mCameraParameters?.flashMode = Camera.Parameters.FLASH_MODE_OFF
@@ -214,14 +211,14 @@ class CameraSurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: In
         releaseCamera()
         currentCamera = frontCamera
         openCamera()
-        startPreview(holder)
+        startPreview()
     }
 
     override fun switchToBack() {
         releaseCamera()
         currentCamera = backCamera
         openCamera()
-        startPreview(holder)
+        startPreview()
     }
 
 }

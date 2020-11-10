@@ -9,7 +9,6 @@ import android.graphics.SurfaceTexture
 import android.hardware.camera2.*
 import android.media.Image
 import android.media.ImageReader
-import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.AttributeSet
@@ -18,7 +17,6 @@ import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.TextureView
 import android.view.TextureView.SurfaceTextureListener
-import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
 import com.ihubin.av.app.base.AspectRatio
 import com.ihubin.av.app.base.Size
@@ -50,7 +48,7 @@ class Camera2TextureView(context: Context, attrs: AttributeSet?, defStyleAttr: I
         checkCamera()
     }
 
-    constructor(context: Context) : this(context, null, 0) {}
+    constructor(context: Context) : this(context, null, 0)
 
     override fun onSurfaceTextureAvailable(
         surface: SurfaceTexture,
@@ -80,7 +78,7 @@ class Camera2TextureView(context: Context, attrs: AttributeSet?, defStyleAttr: I
     /**
      * 检测相机
      */
-    private fun checkCamera() {
+    override fun checkCamera() {
         val cameraManager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
         try {
             val cameraIdList = cameraManager.cameraIdList
@@ -129,7 +127,7 @@ class Camera2TextureView(context: Context, attrs: AttributeSet?, defStyleAttr: I
     /**
      * 打开相机
      */
-    private fun openCamera() {
+    override fun openCamera() {
         if (ActivityCompat.checkSelfPermission(
                 context,
                 Manifest.permission.CAMERA
@@ -186,9 +184,9 @@ class Camera2TextureView(context: Context, attrs: AttributeSet?, defStyleAttr: I
     /**
      * 相机预览
      */
-    private fun startPreview() {
+    @Suppress("DEPRECATION")
+    override fun startPreview() {
         try {
-
             mCaptureRequestBuilder =
                 mCameraDevice!!.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
             val sizes = mPreviewSizes.sizes(mDefaultAspectRatio)
@@ -212,7 +210,7 @@ class Camera2TextureView(context: Context, attrs: AttributeSet?, defStyleAttr: I
                         mCameraCaptureSession = session
                         val captureRequest = mCaptureRequestBuilder!!.build()
                         try {
-                            session.setRepeatingRequest(captureRequest, null, null)
+                            session.setRepeatingRequest(captureRequest, captureCallback, mWorkHandler)
                         } catch (e: CameraAccessException) {
                         }
                     }
@@ -225,7 +223,11 @@ class Camera2TextureView(context: Context, attrs: AttributeSet?, defStyleAttr: I
         }
     }
 
-    private fun stopPreview() {
+    private var captureCallback = object: CameraCaptureSession.CaptureCallback() {
+
+    }
+
+    override fun stopPreview() {
         try {
             mCameraCaptureSession?.stopRepeating()
             mCameraCaptureSession?.abortCaptures()
@@ -235,7 +237,7 @@ class Camera2TextureView(context: Context, attrs: AttributeSet?, defStyleAttr: I
         mCameraCaptureSession = null
     }
 
-    private fun releaseCamera() {
+    override fun releaseCamera() {
         stopPreview()
         try {
             mCameraDevice?.close()
@@ -245,24 +247,22 @@ class Camera2TextureView(context: Context, attrs: AttributeSet?, defStyleAttr: I
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.M)
     override fun openFlash() {
         mCaptureRequestBuilder!!.set(
             CaptureRequest.FLASH_MODE,
             CaptureRequest.FLASH_MODE_TORCH
         )
         val mCaptureRequest = mCaptureRequestBuilder!!.build()
-        mCameraCaptureSession!!.setRepeatingRequest(mCaptureRequest, null, mWorkHandler)
+        mCameraCaptureSession!!.setRepeatingRequest(mCaptureRequest, captureCallback, mWorkHandler)
     }
 
-    @RequiresApi(Build.VERSION_CODES.M)
     override fun closeFlash() {
         mCaptureRequestBuilder!!.set(
             CaptureRequest.FLASH_MODE,
             CaptureRequest.FLASH_MODE_OFF
         )
         val mCaptureRequest = mCaptureRequestBuilder!!.build()
-        mCameraCaptureSession!!.setRepeatingRequest(mCaptureRequest, null, mWorkHandler)
+        mCameraCaptureSession!!.setRepeatingRequest(mCaptureRequest, captureCallback, mWorkHandler)
     }
 
     override fun switchToFront() {

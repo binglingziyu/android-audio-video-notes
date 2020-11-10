@@ -28,7 +28,9 @@ class CameraTextureView(context: Context, attrs: AttributeSet?, defStyleAttr: In
     private var backCamera: Int? = null
     private var currentCamera: Int? = null
 
+    @Suppress("DEPRECATION")
     private var mCamera: Camera? = null
+    @Suppress("DEPRECATION")
     private var mCameraParameters: Camera.Parameters? = null
     private val mDefaultAspectRatio = AspectRatio.of(16, 9)
 //    private val DEFAULT_ASPECT_RATIO = AspectRatio.of(4, 3)
@@ -39,7 +41,7 @@ class CameraTextureView(context: Context, attrs: AttributeSet?, defStyleAttr: In
         checkCamera()
     }
 
-    constructor(context: Context) : this(context, null, 0) {}
+    constructor(context: Context) : this(context, null, 0)
 
     override fun onSurfaceTextureAvailable(
         surface: SurfaceTexture,
@@ -47,7 +49,7 @@ class CameraTextureView(context: Context, attrs: AttributeSet?, defStyleAttr: In
         height: Int
     ) {
         openCamera()
-        startPreview(surface)
+        startPreview()
     }
 
     override fun onSurfaceTextureSizeChanged(
@@ -67,15 +69,16 @@ class CameraTextureView(context: Context, attrs: AttributeSet?, defStyleAttr: In
     /**
      * 检测相机
      */
-    private fun checkCamera() {
+    @Suppress("DEPRECATION")
+    override fun checkCamera() {
         val number: Int = Camera.getNumberOfCameras()
         val cameraInfo = Camera.CameraInfo()
         for (i in 0 until number) {
             Camera.getCameraInfo(i, cameraInfo)
             if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_BACK) {
-                backCamera = i;
+                backCamera = i
             } else if(cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
-                frontCamera = i;
+                frontCamera = i
             }
         }
         // 默认使用后置摄像头
@@ -86,7 +89,7 @@ class CameraTextureView(context: Context, attrs: AttributeSet?, defStyleAttr: In
      * 打开相机
      */
     @Suppress("DEPRECATION")
-    private fun openCamera() {
+    override fun openCamera() {
         if (ActivityCompat.checkSelfPermission(
                 context,
                 Manifest.permission.CAMERA
@@ -124,13 +127,12 @@ class CameraTextureView(context: Context, attrs: AttributeSet?, defStyleAttr: In
 
     /**
      * 开始预览
-     * @param texture
      */
     @Suppress("DEPRECATION")
-    private fun startPreview(texture: SurfaceTexture) {
+    override fun startPreview() {
         mCamera?.setPreviewCallback { _, _ -> }
         try {
-            mCamera?.setPreviewTexture(texture)
+            mCamera?.setPreviewTexture(surfaceTexture)
             mCamera?.startPreview()
         } catch (e: IOException) {
             e.printStackTrace()
@@ -141,7 +143,7 @@ class CameraTextureView(context: Context, attrs: AttributeSet?, defStyleAttr: In
      * 停止预览
      */
     @Suppress("DEPRECATION", "SameParameterValue")
-    private fun stopPreview() {
+    override fun stopPreview() {
         try {
             mCamera?.stopPreview()
             mCamera?.setPreviewCallback(null)
@@ -155,7 +157,7 @@ class CameraTextureView(context: Context, attrs: AttributeSet?, defStyleAttr: In
      * 关闭相机
      */
     @Suppress("DEPRECATION")
-    private fun releaseCamera() {
+    override fun releaseCamera() {
         Log.d(TAG, "releaseCamera")
         stopPreview()
         try {
@@ -186,6 +188,7 @@ class CameraTextureView(context: Context, attrs: AttributeSet?, defStyleAttr: In
         }
     }
 
+    @Suppress("DEPRECATION")
     override fun openFlash() {
         //打开闪光灯
         mCameraParameters?.flashMode = Camera.Parameters.FLASH_MODE_TORCH
@@ -196,6 +199,7 @@ class CameraTextureView(context: Context, attrs: AttributeSet?, defStyleAttr: In
         }
     }
 
+    @Suppress("DEPRECATION")
     override fun closeFlash() {
         //关闭闪光灯
         mCameraParameters?.flashMode = Camera.Parameters.FLASH_MODE_OFF
@@ -210,14 +214,14 @@ class CameraTextureView(context: Context, attrs: AttributeSet?, defStyleAttr: In
         releaseCamera()
         currentCamera = frontCamera
         openCamera()
-        startPreview(surfaceTexture!!)
+        startPreview()
     }
 
     override fun switchToBack() {
         releaseCamera()
         currentCamera = backCamera
         openCamera()
-        startPreview(surfaceTexture!!)
+        startPreview()
     }
 
 }
