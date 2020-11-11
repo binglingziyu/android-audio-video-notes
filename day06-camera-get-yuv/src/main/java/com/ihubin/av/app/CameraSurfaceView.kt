@@ -12,6 +12,7 @@ import android.util.Log
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.core.app.ActivityCompat
+import com.ihubin.av.app.CameraUtil.rotateYUV420Degree90
 import com.ihubin.av.app.base.AspectRatio
 import com.ihubin.av.app.base.Size
 import com.ihubin.av.app.base.SizeMap
@@ -149,7 +150,13 @@ class CameraSurfaceView(context: Context, attrs: AttributeSet?, defStyleAttr: In
     override fun startPreview() {
         mCamera?.setPreviewCallback  {data, _ ->
             Log.d(TAG, "数据大小："+data.size)
-            storeFile.appendBytes(data)
+            val rotateStartTime = System.currentTimeMillis()
+            val rotateData = rotateYUV420Degree90(data, 1920, 1080)
+            val rotateEndTime = System.currentTimeMillis()
+            Log.d(TAG, "旋转耗时：${rotateEndTime - rotateStartTime}")
+            if (rotateData != null) {
+                storeFile.appendBytes(rotateData)
+            }
          }
         try {
             mCamera?.setPreviewDisplay(holder)
